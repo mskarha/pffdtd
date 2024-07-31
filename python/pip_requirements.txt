@@ -19,3 +19,4 @@ resampy >= 0.2.2
 scipy >= 1.7.0
 tqdm >= 4.58.0
 vtk >= 9.0.1 #pip may have issues here
+configobj >= 5.0.8
