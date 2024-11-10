@@ -111,7 +111,9 @@ def sim_setup(
     vox_scene.calc_adj(Nprocs=Nprocs)
     vox_scene.check_adj_full()
     vox_scene.save(save_folder,compress=compress)
-
+    
+    #check that source/receivers don't intersect with boundaries
+    sim_comms.pre_filter_clashes(vox_scene.bn_ixyz)
     #check that source/receivers don't intersect with boundaries
     sim_comms.check_for_clashes(vox_scene.bn_ixyz)
 

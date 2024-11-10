@@ -13,6 +13,7 @@
 ##############################################################################
 
 import numpy as np
+import time
 from numpy import array as npa
 from voxelizer.cart_grid import CartGrid
 from pathlib import Path
@@ -123,8 +124,15 @@ class SimComms:
         #many receivers, can have duplicates
         out_alpha = np.zeros((Rxyz.shape[0],8),np.float64) 
         out_ixyz = np.zeros((Rxyz.shape[0],8),dtype=np.int64) 
+        print(f"Total points to process: {Rxyz.shape[0]}")
+        start_time = time.time()
+        
         for rr in range(Rxyz.shape[0]):
             out_alpha[rr],out_ixyz[rr] = self.get_linear_interp_weights(Rxyz[rr])
+            # Print progress every 10 seconds
+            if time.time() - start_time >= 10:
+                print(f"Progress: rr = {rr}")
+                start_time = time.time()  # Reset the timer
 
         self.out_alpha = out_alpha
         self.out_ixyz = out_ixyz
@@ -229,7 +237,35 @@ class SimComms:
             assert np.all(np.mod(np.sum(ix_iy_iz8,axis=-1),2)==0)
 
         return alpha8,ixyz8
+        
+        
+    def pre_filter_clashes(self, bn_ixyz):
+        # Convert boundary node indices to a set for faster lookup
+        bn_ixyz_set = set(bn_ixyz.flatten())
+        
+        # Nested function to filter out indices that overlap with boundary nodes
+        def _pre_filter_clashes(ixyz):
+            return np.array([ix for ix in ixyz if ix not in bn_ixyz_set], dtype=ixyz.dtype)
 
+        # Timer to measure performance
+        timer = TimerDict()
+
+        # Pre-filter in_ixyz
+        timer.tic('filter in_ixyz')
+        self.print(f'Filtering in_ixyz to remove boundary clashes...')
+        self.in_ixyz = _pre_filter_clashes(self.in_ixyz)
+        self.print(timer.ftoc('filter in_ixyz'))
+        
+        # Pre-filter out_ixyz
+        timer.tic('filter out_ixyz')
+        self.print(f'Filtering out_ixyz to remove boundary clashes...')
+        self.out_ixyz = _pre_filter_clashes(self.out_ixyz)
+        self.print(timer.ftoc('filter out_ixyz'))
+        
+        # Confirmation message
+        self.print('Boundary intersection filtering complete')
+
+    
     def check_for_clashes(self,bn_ixyz):
         #scheme implementation designed to only have source/receiver in 'regular' air nodes
         def _check_for_clashes(_ixyz,bn_ixyz):

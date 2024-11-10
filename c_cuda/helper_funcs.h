@@ -84,6 +84,7 @@ bool check_file_exists(char *filename) {
 //malloc check malloc, and initialise to zero
 //hard stop program if failed
 void mymalloc(void **arr, uint64_t Nbytes) {
+   printf("Requested allocation size: %lu bytes\n", Nbytes);
    *arr = malloc(Nbytes);
    if (*arr == NULL) {
       printf("Memory allocation failed");
