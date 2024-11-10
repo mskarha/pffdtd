@@ -1,0 +1,3 @@
+data/sim_data/aspen/gpu/comms_out.h5
+data/sim_data/aspen/gpu/vox_out.h5
+python/voxel_grid.json
