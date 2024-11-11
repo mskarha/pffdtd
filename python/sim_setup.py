@@ -78,6 +78,8 @@ def sim_setup(
     #sources have to be specified in advance (edit JSON if necessary)
     Sxyz = room_geo.Sxyz[source_num-1] #one source (one-based indexing)
     Rxyz = room_geo.Rxyz #many receivers
+    
+    np.save('receivers.npy', Rxyz)
 
     #some constants for the simulation, in one place
     sim_consts = SimConsts(Tc=Tc,rh=rh,fmax=fmax,PPW=PPW,fcc=fcc_flag)

@@ -54,7 +54,7 @@ sim_setup(
     rh=50,
     fcc_flag=True,
     PPW=10.0, #for 1% phase velocity error at fmax
-    fmax=1500.0,
+    fmax=800.0,
     save_folder='../data/sim_data/aspen/gpu',
     save_folder_gpu='../data/sim_data/aspen/gpu',
     compress=3, #apply level-3 GZIP compression to larger h5 files

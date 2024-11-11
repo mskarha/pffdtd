@@ -15,6 +15,8 @@
 
 import numpy as np
 from numpy import array as npa
+import vtk
+from vtk.util import numpy_support
 from pathlib import Path
 import h5py
 import matplotlib.pyplot as plt
@@ -276,16 +278,62 @@ class ProcessOutputs:
         #saves processed outputs
         Fs_f = self.Fs_f
         data_dir = self.data_dir
+        points = np.load('./receivers.npy')
         r_out_f = self.r_out_f
         r_out_f = np.atleast_2d(r_out_f) 
         n_fac = np.max(np.abs(r_out_f.flat[:])) 
         self.print(f'headroom = {-20*np.log10(n_fac):.1}dB')
-        for i in range(r_out_f.shape[0]):
-            fname = Path(data_dir / Path(f'R{i+1:03d}_out_normalised.wav')) #normalised across receivers
-            wavwrite(fname,int(Fs_f),r_out_f[i]/n_fac) 
-            if n_fac<1.0:
-                fname = Path(data_dir / Path(f'R{i+1:03d}_out_native.wav')) #not scaled, direct sound amplitude ~1/4πR
-                wavwrite(fname,int(Fs_f),r_out_f[i]) 
+        self.print(type(r_out_f))
+        print("Shape:", r_out_f.shape)  # (rows, columns)
+        # Number of dimensions
+        print("Number of dimensions:", r_out_f.ndim)
+        # Size of the array (total number of elements)
+        print("Size:", r_out_f.size)
+        # Data type of the array elements
+        print("Data type:", r_out_f.dtype)
+        # Number of bytes per element
+        print("Item size:", r_out_f.itemsize)
+        # Total bytes consumed by the array
+        print("Total bytes:", r_out_f.nbytes)
+        # Assuming r_out_f is the given ndarray
+        num_columns = r_out_f.shape[1]
+        
+        np.save("r_out_f_full.npy", r_out_f)
+        pressure_data = r_out_f
+        
+        # Create VTK points
+        vtk_points = vtk.vtkPoints()
+        for point in points:
+            vtk_points.InsertNextPoint(point)
+
+        # Create VTK PolyData object and add points
+        poly_data = vtk.vtkPolyData()
+        poly_data.SetPoints(vtk_points)
+
+        # Initialize VTK writer
+        writer = vtk.vtkXMLPolyDataWriter()
+        writer.SetInputData(poly_data)
+
+        # Loop through each timestep and write a separate file
+        for timestep in range(pressure_data.shape[1]):
+            # Convert current timestep's pressures to VTK format
+            pressure_array = numpy_support.numpy_to_vtk(pressure_data[:, timestep], deep=True)
+            pressure_array.SetName("Pressure")
+            poly_data.GetPointData().SetScalars(pressure_array)
+
+            # Set the file name for each timestep (e.g., output_0.vtp, output_1.vtp, ...)
+            writer.SetFileName(f'../vtp/output_timestep_{timestep}.vtp')
+            writer.Write()
+
+        print("VTK files created for each timestep.")
+
+
+        #for i in range(r_out_f.shape[0]):
+            #fname = Path(data_dir / Path(f'R{i+1:03d}_out_normalised.wav')) #normalised across receivers
+            #wavwrite(fname,int(Fs_f),r_out_f[i]/n_fac) 
+            #if n_fac<1.0:
+                #fname = Path(data_dir / Path(f'R{i+1:03d}_out_native.wav')) #not scaled, direct sound amplitude ~1/4πR
+                #wavwrite(fname,int(Fs_f),r_out_f[i]) 
 
     #saw processed outputs in .h5 (with native scaling) 
     def save_h5(self):
@@ -313,7 +361,7 @@ def main():
     parser.set_defaults(plot=False)
     parser.set_defaults(plot_raw=False)
     parser.set_defaults(data_dir=None)
-    parser.set_defaults(resample_Fs=48e3)
+    #parser.set_defaults(resample_Fs=48e3)
     parser.set_defaults(air_abs_filter='none')
     parser.set_defaults(save_wav=False)
     parser.set_defaults(N_order_lowpass=8)
