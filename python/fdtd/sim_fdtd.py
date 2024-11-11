@@ -23,6 +23,8 @@
 ##############################################################################
 
 import numpy as np
+import matplotlib.pyplot as plt
+from matplotlib.animation import FFMpegWriter
 from numpy import array as npa
 import numba as nb
 from pathlib import Path
@@ -72,7 +74,7 @@ class SimEngine:
         ii = (mat_bn>-1)
         self.saf_bnl = saf_bn[ii]
         self.mat_bnl = mat_bn[ii]
-        self.bnl_ixyz = self.bn_ixyz[ii]
+        self.bnl_ixy = self.bn_ixyz[ii]
 
         h5f = h5py.File(data_dir / Path('comms_out.h5'),'r')
         self.in_ixyz      = h5f['in_ixyz'][...]
@@ -146,12 +148,12 @@ class SimEngine:
         if self.fcc:
             Nba = Nba//2
         Q_bna = np.full((Nba,),0,dtype=np.int8)
-        bna_ixyz = np.full((Nba,),0,dtype=np.int64)
+        bna_ixy = np.full((Nba,),0,dtype=np.int64)
         #get indices
-        nb_get_abc_ib(bna_ixyz,Q_bna,Nx,Ny,Nz,self.fcc)
-        #assert np.union1d(self.bn_ixyz,bna_ixyz).size == self.bn_ixyz.size + bna_ixyz.size
+        nb_get_abc_ib(bna_ixy,Q_bna,Nx,Ny,Nz,self.fcc)
+        #assert np.union1d(self.bn_ixyz,bna_ixy).size == self.bn_ixyz.size + bna_ixy.size
         self.Q_bna = Q_bna
-        self.bna_ixyz = bna_ixyz
+        self.bna_ixy = bna_ixy
         self.Nba = Nba
         if self.energy_on:
             self.V_bna = (2.0**-Q_bna)
@@ -171,7 +173,7 @@ class SimEngine:
 
         u_out = np.zeros((Nr,Nt),dtype=np.float64)
 
-        Nbl = self.bnl_ixyz.size #reduced (non-rigid only)
+        Nbl = self.bnl_ixy.size #reduced (non-rigid only)
         u2b = np.zeros((Nbl,),dtype=np.float64)
         u2ba = np.zeros((self.Nba,),dtype=np.float64) 
 
@@ -344,44 +346,71 @@ class SimEngine:
         xy_x, xy_y = np.meshgrid(xv, yv, indexing='xy')
         xz_x, xz_z = np.meshgrid(xv, zv, indexing='xy')
         yz_y, yz_z = np.meshgrid(yv, zv, indexing='xy')
-        if draw_backend=='matplotlib':
+        if draw_backend == 'matplotlib':
             import matplotlib.pyplot as plt
-            #initialise subplots
-            fig = plt.figure()
-            ax = fig.add_subplot(1, 3, 1)
-            ax.set_title('xy-plane')
-            ax.set_xlabel('x')
-            ax.set_ylabel('y')
-            extent=[xv[0],xv[-1],yv[0],yv[-1],]
-            hh_xy = ax.imshow(uxy.T,extent=extent,origin='lower',aspect='equal')
-            ax.imshow(~bnm_xy.T,extent=extent,origin='lower',aspect='equal',alpha=np.float_(bnm_xy).T)
-            fig.colorbar(hh_xy)
+            from matplotlib.animation import FuncAnimation
+            from matplotlib import gridspec
 
-            ms = 4
-            co = (0,0,0)
-            #marker boundary points
-            plt.plot(xy_x.flat[bnm_xy.T.flat[:]],xy_y.flat[bnm_xy.T.flat[:]],marker='.',markersize=ms,linestyle='none',color=co)
+            # Initialise subplots and formatting
+            hfont = {'fontname': 'Nimbus Sans'}
+            fig = plt.figure(figsize=(15, 8))  # Adjust figure size as needed
+            gs = gridspec.GridSpec(2, 2, width_ratios=[2, 1], height_ratios=[1, 1])  # 2x2 grid with custom ratios
 
-            ax = fig.add_subplot(1, 3, 2)
-            ax.set_title('xz-plane')
-            ax.set_xlabel('x')
-            ax.set_ylabel('z')
-            extent=[xv[0],xv[-1],zv[0],zv[-1],]
-            hh_xz = ax.imshow(uxz.T,extent=extent,origin='lower',aspect='equal')
-            fig.colorbar(hh_xz)
+            # Full-height middle subplot on the left
+            ax1 = fig.add_subplot(gs[0, 1])  # This spans both rows in the first column
+            
+            
+            extent = [xv[0], xv[-1], yv[0], yv[-1]]
+            vmin = -0.01
+            vmax = 0.01
+            hh_xy = ax1.imshow(uxy.T, extent=extent, origin='lower', aspect='equal', cmap='binary', vmin=vmin, vmax=vmax)
+            ax1.imshow(~bnm_xy.T, extent=extent, origin='lower', aspect='equal', alpha=np.float64(bnm_xy).T)
 
-            plt.plot(xz_x.flat[bnm_xz.T.flat[:]],xz_z.flat[bnm_xz.T.flat[:]],marker='.',markersize=ms,linestyle='none',color=co)
+            ms = 0.8
+            co = (0, 0, 0)
+            plt.plot(xy_x.flat[bnm_xy.T.flat[:]], xy_y.flat[bnm_xy.T.flat[:]], marker='.', markersize=ms, linestyle='none', color=co)
 
-            ax = fig.add_subplot(1, 3, 3)
-            ax.set_title('yz-plane')
-            ax.set_xlabel('y')
-            ax.set_ylabel('z')
-            extent=[yv[0],yv[-1],zv[0],zv[-1],]
-            hh_yz = ax.imshow(uyz.T,extent=extent,origin='lower',aspect='equal')
-            fig.colorbar(hh_yz)
+            # Top-right subplot
+            ax2 = fig.add_subplot(gs[:, 0])   
+            extent = [xv[0], xv[-1], zv[0], zv[-1]] 
+            hh_xz = ax2.imshow(uxz.T, extent=extent, origin='lower', aspect='equal', cmap='binary', vmin=vmin, vmax=vmax)
+            plt.plot(xz_x.flat[bnm_xz.T.flat[:]], xz_z.flat[bnm_xz.T.flat[:]], marker='.', markersize=ms, linestyle='none', color=co)
 
-            plt.plot(yz_y.flat[bnm_yz.T.flat[:]],yz_z.flat[bnm_yz.T.flat[:]],marker='.',markersize=ms,linestyle='none',color=co)
-            plt.draw()
+            # Bottom-right subplot
+            ax3 = fig.add_subplot(gs[1, 1])
+            extent = [yv[0], yv[-1], zv[0], zv[-1]]
+            hh_yz = ax3.imshow(uyz.T, extent=extent, origin='lower', aspect='equal', cmap='binary', vmin=vmin, vmax=vmax)
+            plt.plot(yz_y.flat[bnm_yz.T.flat[:]], yz_z.flat[bnm_yz.T.flat[:]], marker='.', markersize=ms, linestyle='none', color=co)
+
+            plt.tight_layout()
+
+            # Animation function
+            def update(frame):
+                self.run_steps(frame, 1)  # Run one step of the simulation
+                uxy = self.gather_slice(iz=iz_in)  # Update uxy slice
+                uxz = self.gather_slice(iy=iy_in)  # Update uxz slice
+                uyz = self.gather_slice(ix=ix_in)  # Update uyz slice
+
+                # Update the plots
+                hh_xy.set_data(uxy.T)
+                hh_xz.set_data(uxz.T)
+                hh_yz.set_data(uyz.T)
+
+                # Adjust color limits if necessary
+                hh_xy.set_clim(vmin=0, vmax=0.002)
+                hh_xz.set_clim(vmin=0, vmax=0.002)
+                hh_yz.set_clim(vmin=0, vmax=0.002)
+
+                return hh_xy, hh_xz, hh_yz
+
+            # Create the animation
+            anim = FuncAnimation(fig, update, frames=np.arange(0, Nt), blit=True)
+
+            # Optionally save the animation
+            anim.save('simulation_animation.mp4', fps=10, extra_args=['-vcodec', 'libx264'], dpi=200)
+
+            plt.show()
+
 
         elif draw_backend=='mayavi':
             from mayavi import mlab
@@ -399,8 +428,8 @@ class SimEngine:
                 edges_xy_1 = npa([[],[]]).T
                 edges_xz_0 = npa([[],[]]).T
                 edges_xz_1 = npa([[],[]]).T
-                edges_yz_0 = npa([[],[]]).T
-                edges_yz_1 = npa([[],[]]).T
+                edges_xy_0 = npa([[],[]]).T
+                edges_xy_1 = npa([[],[]]).T
                 for mat in mat_str:
                     pts = npa(mats_dict[mat]['pts'],dtype=np.float64) #no rotation
                     tris = npa(mats_dict[mat]['tris'],dtype=np.int64)
@@ -416,8 +445,8 @@ class SimEngine:
                         del ii
 
                         ii = np.nonzero((pts[tris[:,j%3],0]>xv[ix_in]) ^ (pts[tris[:,(j+1)%3],0]>xv[ix_in]))[0]
-                        edges_yz_0 = np.r_[edges_yz_0,pts[tris[ii,j%3]][:,[1,2]]]
-                        edges_yz_1 = np.r_[edges_yz_1,pts[tris[ii,(j+1)%3]][:,[1,2]]]
+                        edges_xy_0 = np.r_[edges_xy_0,pts[tris[ii,j%3]][:,[1,2]]]
+                        edges_xy_1 = np.r_[edges_xy_1,pts[tris[ii,(j+1)%3]][:,[1,2]]]
                         del ii
 
                     u = edges_xy_1[:,0]-edges_xy_0[:,0]; 
@@ -430,10 +459,10 @@ class SimEngine:
                     w = edges_xz_1[:,1]-edges_xz_0[:,1]; 
                     mlab.quiver3d(edges_xz_0[:,0],np.full(u.shape,yv[iy_in]),edges_xz_0[:,1],u,v,w,mode='2ddash',scale_factor=1.,color=(0,0,0))
 
-                    v = edges_yz_1[:,0]-edges_yz_0[:,0]; 
-                    w = edges_yz_1[:,1]-edges_yz_0[:,1]; 
+                    v = edges_xy_1[:,0]-edges_xy_0[:,0]; 
+                    w = edges_xy_1[:,1]-edges_xy_0[:,1]; 
                     u=np.zeros(w.shape)
-                    mlab.quiver3d(np.full(u.shape,xv[ix_in]),edges_yz_0[:,0],edges_yz_0[:,1],u,v,w,mode='2ddash',scale_factor=1.,color=(0,0,0))
+                    mlab.quiver3d(np.full(u.shape,xv[ix_in]),edges_xy_0[:,0],edges_xy_0[:,1],u,v,w,mode='2ddash',scale_factor=1.,color=(0,0,0))
 
                     mlab.triangular_mesh(*(pts.T),tris,color=(1., 1., 1.),opacity=0.2)
                     #mlab.triangular_mesh(*(pts.T),tris,color=(0., 0., 0.),representation='wireframe',opacity=0.2)
@@ -449,12 +478,12 @@ class SimEngine:
 
             hh_xy = mlab.mesh(xy_x,xy_y,np.full(xy_x.shape,zv[iz_in]),scalars=ldraw(uxy.T),colormap=cmap)
             hh_xz = mlab.mesh(xz_x,np.full(xz_x.shape,yv[iy_in]),xz_z,scalars=ldraw(uxz.T),colormap=cmap)
-            hh_yz = mlab.mesh(np.full(yz_y.shape,xv[ix_in]),yz_y,yz_z,scalars=ldraw(uyz.T),colormap=cmap)
+            hh_xy = mlab.mesh(np.full(xy_y.shape,xv[ix_in]),xy_y,xy_z,scalars=ldraw(uxy.T),colormap=cmap)
 
             #need three colorbars, but we only see one
             mcb_xy = mlab.colorbar(object=hh_xy,orientation='vertical') #not sure if global scaling
             mcb_xz = mlab.colorbar(object=hh_xz,orientation='vertical') #not sure if global scaling
-            mcb_yz = mlab.colorbar(object=hh_yz,orientation='vertical') #not sure if global scaling
+            mcb_xy = mlab.colorbar(object=hh_xy,orientation='vertical') #not sure if global scaling
 
             mlab.orientation_axes()
 
@@ -473,20 +502,20 @@ class SimEngine:
 
             uxy = self.gather_slice(iz=iz_in)
             uxz = self.gather_slice(iy=iy_in)
-            uyz = self.gather_slice(ix=ix_in)
+            uxy = self.gather_slice(ix=ix_in)
 
             if draw_backend=='matplotlib':
                 cmax = np.max(np.abs(uxy.flat[:]))
                 hh_xy.set_data(uxy.T)
-                hh_xy.set_clim(vmin=-cmax*1.1,vmax=cmax*1.1)
+                hh_xy.set_clim(vmin=-cmax*.9,vmax=cmax*.9)
 
                 cmax = np.max(np.abs(uxz.flat[:]))
                 hh_xz.set_data(uxz.T)
-                hh_xz.set_clim(vmin=-cmax*1.1,vmax=cmax*1.1)
+                hh_xz.set_clim(vmin=-cmax*.9,vmax=cmax*.9)
 
-                cmax = np.max(np.abs(uyz.flat[:]))
-                hh_yz.set_data(uyz.T)
-                hh_yz.set_clim(vmin=-cmax*1.1,vmax=cmax*1.1)
+                cmax = np.max(np.abs(uxy.flat[:]))
+                hh_xy.set_data(uxy.T)
+                hh_xy.set_clim(vmin=-cmax*.9,vmax=cmax*.9)
 
                 plt.draw()
                 plt.pause(1e-10)
@@ -495,8 +524,8 @@ class SimEngine:
             elif draw_backend=='mayavi':
                 cmax_xy = np.max(np.abs(uxy.flat[:]))
                 cmax_xz = np.max(np.abs(uxz.flat[:]))
-                cmax_yz = np.max(np.abs(uyz.flat[:]))
-                cmax =  np.max(npa([cmax_xy,cmax_yz,cmax_xz]))
+                cmax_xy = np.max(np.abs(uxy.flat[:]))
+                cmax =  np.max(npa([cmax_xy,cmax_xy,cmax_xz]))
 
                 hh_xy.mlab_source.scalars = ldraw(uxy.T)
                 hh_xy.mlab_source.update()
@@ -504,14 +533,14 @@ class SimEngine:
                 hh_xz.mlab_source.scalars = ldraw(uxz.T)
                 hh_xz.mlab_source.update()
 
-                hh_yz.mlab_source.scalars = ldraw(uyz.T)
-                hh_yz.mlab_source.update()
+                hh_xy.mlab_source.scalars = ldraw(uxy.T)
+                hh_xy.mlab_source.update()
 
                 #mcb_xy.data_range = (cmax-40, cmax)
-                #mcb_yz.data_range = (cmax-40, cmax)
+                #mcb_xy.data_range = (cmax-40, cmax)
                 #mcb_xz.data_range = (cmax-40, cmax)
                 mcb_xy.data_range = (-cmax*1.1, cmax*1.1) 
-                mcb_yz.data_range = (-cmax*1.1, cmax*1.1)
+                mcb_xy.data_range = (-cmax*1.1, cmax*1.1)
                 mcb_xz.data_range = (-cmax*1.1, cmax*1.1)
 
                 #update
@@ -537,7 +566,7 @@ class SimEngine:
         bn_ixyz = self.bn_ixyz
         adj_bn = self.adj_bn
 
-        bnl_ixyz = self.bnl_ixyz
+        bnl_ixy = self.bnl_ixy
         ssaf_bnl = self.ssaf_bnl
 
         in_ixyz = self.in_ixyz
@@ -554,7 +583,7 @@ class SimEngine:
         mat_bnl = self.mat_bnl
 
         u2ba = self.u2ba
-        bna_ixyz = self.bna_ixyz
+        bna_ixy = self.bna_ixy
         Q_bna = self.Q_bna
 
         if energy_on:
@@ -591,21 +620,21 @@ class SimEngine:
 
                 #NB: this is an 'energy-like' quantity, but not necessarily in Joules (off by ρ for u as velocity potential)
                 H_tot[n] = V_fac*0.5*h*nb_energy_int(u1,u2,Lu2,l2) #H_tot[n] = V_fac*0.5*h*np.sum((((u1-u2)**2)/l2 - u1*Lu2)[1:Nx-1,1:Ny-1,1:Nz-1])
-                H_tot[n] -=  V_fac*0.5*h*np.sum((1.0-V_bna)*(((u1.flat[bna_ixyz]-u2.flat[bna_ixyz])**2)/l2 - u1.flat[bna_ixyz]*Lu2.flat[bna_ixyz]))
-                #H_tot[n] -=  V_fac*0.5*h*nb_energy_int_corr(V_bna,u1,u2,Lu2,l2,bna_ixyz) #problem with numba fn signature
+                H_tot[n] -=  V_fac*0.5*h*np.sum((1.0-V_bna)*(((u1.flat[bna_ixy]-u2.flat[bna_ixy])**2)/l2 - u1.flat[bna_ixy]*Lu2.flat[bna_ixy]))
+                #H_tot[n] -=  V_fac*0.5*h*nb_energy_int_corr(V_bna,u1,u2,Lu2,l2,bna_ixy) #problem with numba fn signature
 
                 H_tot[n] += V_fac*0.5*c/l2*nb_energy_stored(ssaf_bnl,vh1,D_bnl,gh1,F_bnl,Ts) #H_tot[n] += V_fac*0.5*c/l2*np.sum(ssaf_bnl*((vh1**2)*D_bnl + ((Ts*gh1)**2)*F_bnl).T)
 
-            nb_save_bn(u0,u2ba,bna_ixyz)
+            nb_save_bn(u0,u2ba,bna_ixy)
             nb_flip_halos(u1)
 
             nb_stencil_air(Lu1,u1,bn_mask)
             nb_stencil_bn(Lu1,u1,bn_ixyz,adj_bn)
-            nb_save_bn(u0,u2b,bnl_ixyz)
+            nb_save_bn(u0,u2b,bnl_ixy)
             nb_leapfrog_update(u0,u1,Lu1,l2)
-            nb_update_bnl_fd(u0,u2b,l,bnl_ixyz,ssaf_bnl,vh0,vh1,gh1,mat_bnl,mat_coeffs_struct)
+            nb_update_bnl_fd(u0,u2b,l,bnl_ixy,ssaf_bnl,vh0,vh1,gh1,mat_bnl,mat_coeffs_struct)
 
-            nb_update_abc(u0,u2ba,l,bna_ixyz,Q_bna)
+            nb_update_abc(u0,u2ba,l,bna_ixy,Q_bna)
 
             #inout
             u0.flat[in_ixyz] += in_sigs[:,n]
@@ -614,7 +643,7 @@ class SimEngine:
             if energy_on:
                 E_lost[n+1] = E_lost[n] + V_fac*0.25*h/l*nb_energy_loss(ssaf_bnl,vh0,vh1,E_bnl) #E_lost[n+1] = E_lost[n] + V_fac*0.25*h/l*np.sum(ssaf_bnl*(((vh0+vh1)**2)*E_bnl).T)
                 
-                E_lost[n+1] += 0.5*V_fac*h/l*np.sum((V_bna*Q_bna)*(u0.flat[bna_ixyz]-u2ba)**2)  #E_lost[n+1] += 0.5*V_fac*h/l*nb_energy_loss_abc(V_bna,Q_bna,u0,u2ba,bna_ixyz) #problem with numba fn signature
+                E_lost[n+1] += 0.5*V_fac*h/l*np.sum((V_bna*Q_bna)*(u0.flat[bna_ixy]-u2ba)**2)  #E_lost[n+1] += 0.5*V_fac*h/l*nb_energy_loss_abc(V_bna,Q_bna,u0,u2ba,bna_ixy) #problem with numba fn signature
                 #H_tot[n] += E_lost[n]
 
                 E_in[n+1] = E_in[n] + (V_fac*h/l2)*0.5*np.sum((u0.flat[in_ixyz]-u2in)*in_sigs[:,n]) #have to undo (l2/h/V_fac) scaling applied to in_sigs
@@ -637,25 +666,30 @@ class SimEngine:
             self.E_lost = E_lost
             self.E_in = E_in
 
-    def gather_slice(self,ix=None,iy=None,iz=None):
+    def gather_slice(self, ix=None, iy=None, iz=None):
         u1 = self.u1
+        Nx, Ny, Nz = u1.shape
+
         if ix is not None:
-            uslice = u1[ix,:,:] 
-            #fill in checkerboard effect if FCC (subgrid)
+            ix = min(max(0, ix), Nx - 1)  # Clamp ix within valid range
+            uslice = u1[ix, :, :]
             if self.fcc:
-                nb_fcc_fill_plot_holes(uslice,ix)
+                nb_fcc_fill_plot_holes(uslice, ix)
 
         elif iy is not None:
-            uslice = u1[:,iy,:] 
+            iy = min(max(0, iy), Ny - 1)  # Clamp iy within valid range
+            uslice = u1[:, iy, :]
             if self.fcc:
-                nb_fcc_fill_plot_holes(uslice,iy)
+                nb_fcc_fill_plot_holes(uslice, iy)
 
         elif iz is not None:
-            uslice = u1[:,:,iz] 
+            iz = min(max(0, iz), Nz - 1)  # Clamp iz within valid range
+            uslice = u1[:, :, iz]
             if self.fcc:
-                nb_fcc_fill_plot_holes(uslice,iz)
-            
+                nb_fcc_fill_plot_holes(uslice, iz)
+
         return uslice
+
 
     def print_last_samples(self,Np):
         self.print('GRID OUTPUTS')
@@ -805,16 +839,16 @@ def nb_leapfrog_update(u0,u1,Lu1,l2):
                 u0[ix,iy,iz] = 2.0*u1[ix,iy,iz] - u0[ix,iy,iz] + l2*Lu1[ix,iy,iz] 
 
 @nb.jit(nopython=True,parallel=True)
-def nb_update_abc(u0,u2ba,l,bna_ixyz,Q_bna):
-    Nba = bna_ixyz.size
+def nb_update_abc(u0,u2ba,l,bna_ixy,Q_bna):
+    Nba = bna_ixy.size
     for i in nb.prange(Nba):
         lQ = l*Q_bna[i]
-        ib = bna_ixyz[i] 
+        ib = bna_ixy[i] 
         u0.flat[ib] = (u0.flat[ib] + lQ*u2ba[i])/(1.0 + lQ)
 
 @nb.jit(nopython=True,parallel=True)
-def nb_update_bnl_fd(u0,u2b,l,bnl_ixyz,ssaf_bnl,vh0,vh1,gh1,mat_bnl,mat_coeffs_struct):
-    Nbl = bnl_ixyz.size
+def nb_update_bnl_fd(u0,u2b,l,bnl_ixy,ssaf_bnl,vh0,vh1,gh1,mat_bnl,mat_coeffs_struct):
+    Nbl = bnl_ixy.size
     for i in nb.prange(Nbl):
         k = mat_bnl[i] 
         if k==-1: #shouldn't happen, but leaving as reminder
@@ -827,7 +861,7 @@ def nb_update_bnl_fd(u0,u2b,l,bnl_ixyz,ssaf_bnl,vh0,vh1,gh1,mat_bnl,mat_coeffs_s
 
         lo2Kbg = 0.5*l*ssaf_bnl[i]*beta #has fcc scaling
 
-        ib = bnl_ixyz[i]
+        ib = bnl_ixy[i]
         ##add branches
         u0.flat[ib] -= l*ssaf_bnl[i]*np.sum(2.0*bDh*vh1[i,:]-bFh*gh1[i,:])
         u0.flat[ib] = (u0.flat[ib] + lo2Kbg*u2b[i])/(1.0 + lo2Kbg)
@@ -856,15 +890,15 @@ def nb_energy_loss(ssaf_bnl,vh0,vh1,E_bnl):
     return np.sum(ssaf_bnl*(((vh0+vh1)**2)*E_bnl).T)
 
 #@nb.jit(nopython=True,parallel=True)
-#def nb_energy_loss_abc(V_bna,Q_bna,u0,u2ba,bna_ixyz):
-    #return np.sum((V_bna*Q_bna)*(u0.flat[bna_ixyz]-u2ba)**2)
+#def nb_energy_loss_abc(V_bna,Q_bna,u0,u2ba,bna_ixy):
+    #return np.sum((V_bna*Q_bna)*(u0.flat[bna_ixy]-u2ba)**2)
 
 #@nb.jit(nopython=True,parallel=True)
-#def nb_energy_int_corr(V_bna,u1,u2,Lu2,l2,bna_ixyz):
-    #return np.sum((1.0-V_bna)*(((u1.flat[bna_ixyz]-u2.flat[bna_ixyz])**2)/l2 - u1.flat[bna_ixyz]*Lu2.flat[bna_ixyz]))
+#def nb_energy_int_corr(V_bna,u1,u2,Lu2,l2,bna_ixy):
+    #return np.sum((1.0-V_bna)*(((u1.flat[bna_ixy]-u2.flat[bna_ixy])**2)/l2 - u1.flat[bna_ixy]*Lu2.flat[bna_ixy]))
 
 @nb.jit(nopython=True,parallel=False)
-def nb_get_abc_ib(bna_ixyz,Q_bna,Nx,Ny,Nz,fcc):
+def nb_get_abc_ib(bna_ixy,Q_bna,Nx,Ny,Nz,fcc):
     ii = 0
     #just doing naive full pass
     for ix in range(1,Nx-1):
@@ -880,10 +914,10 @@ def nb_get_abc_ib(bna_ixyz,Q_bna,Nx,Ny,Nz,fcc):
                 if ((iz==1) or (iz==Nz-2)):
                     Q+=1
                 if Q>0:
-                    bna_ixyz[ii] = ix*Ny*Nz + iy*Nz + iz
+                    bna_ixy[ii] = ix*Ny*Nz + iy*Nz + iz
                     Q_bna[ii] = Q
                     ii += 1
-    assert ii==bna_ixyz.size
+    assert ii==bna_ixy.size
 
 
 @nb.jit(nopython=True,parallel=True)
