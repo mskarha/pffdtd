@@ -78,6 +78,8 @@ def sim_setup(
     #sources have to be specified in advance (edit JSON if necessary)
     Sxyz = room_geo.Sxyz[source_num-1] #one source (one-based indexing)
     Rxyz = room_geo.Rxyz #many receivers
+    
+    np.save('receivers.npy', Rxyz)
 
     #some constants for the simulation, in one place
     sim_consts = SimConsts(Tc=Tc,rh=rh,fmax=fmax,PPW=PPW,fcc=fcc_flag)
@@ -111,7 +113,9 @@ def sim_setup(
     vox_scene.calc_adj(Nprocs=Nprocs)
     vox_scene.check_adj_full()
     vox_scene.save(save_folder,compress=compress)
-
+    
+    #check that source/receivers don't intersect with boundaries
+    sim_comms.pre_filter_clashes(vox_scene.bn_ixyz)
     #check that source/receivers don't intersect with boundaries
     sim_comms.check_for_clashes(vox_scene.bn_ixyz)
 

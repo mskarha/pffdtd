@@ -18,6 +18,9 @@
 
 import numpy as np
 import json as json
+import h5py
+import itertools
+import time
 from numpy import array as npa
 from common.tris_precompute import tris_precompute
 from common.myfuncs import dotv,vecnorm
@@ -105,7 +108,49 @@ class RoomGeo:
         Sxyz = np.atleast_2d(npa([source['xyz'] for source in data['sources']],dtype=np.float64)) @ R
         assert np.all((Sxyz>bmin) & (Sxyz<bmax))
 
-        Rxyz = np.atleast_2d(npa([receiver['xyz'] for receiver in data['receivers']],dtype=np.float64)) @ R
+
+        # Open the HDF5 file and retrieve the datasets
+        with h5py.File('../data/sim_data/aspen/gpu/vox_out.h5', 'r') as file:
+            xv = file['/xv'][:]
+            yv = file['/yv'][:]
+            zv = file['/zv'][:]
+            
+            print("xv size:", xv.size) 
+            print("yv size:", yv.size) 
+            print("zv size:", zv.size) 
+            print("Total points:", xv.size * yv.size * zv.size)
+
+        # Initialize an empty list to collect coordinates
+        coordinates = []
+
+        # Track the time for progress printing
+        start_time = time.time()
+
+        # Calculate the total number of combinations
+        total_combinations = xv.size * yv.size * zv.size
+
+        # Only select every 2161st combination
+        for i in range(0, total_combinations, 2161):
+            # Calculate indices for xv, yv, zv
+            xi = (i // (yv.size * zv.size)) % xv.size
+            yi = (i // zv.size) % yv.size
+            zi = i % zv.size
+
+            # Append the coordinate
+            coordinates.append([float(xv[xi]), float(yv[yi]), float(zv[zi])])
+
+            # Print progress every 10 seconds
+            if time.time() - start_time >= 10:
+                print(f"Progress: i = {i}")
+                start_time = time.time()  # Reset the timer
+
+        # Convert the list of coordinates to a NumPy array
+        Rxyz = np.array(coordinates, dtype=np.float64)
+        #Rxyz = np.array([[-2.65 , -4.854,  1.02 ]])
+
+        print("Generated NumPy matrix Rxyz with shape:", Rxyz.shape)
+        #Rxyz = np.atleast_2d(npa([receiver['xyz'] for receiver in data['receivers']],dtype=np.float64)) @ R
+        Rxyz = Rxyz[np.all((Rxyz > bmin) & (Rxyz < bmax), axis=1)]
         assert np.all((Rxyz>bmin) & (Rxyz<bmax))
 
         self.mats_dict = mats_dict

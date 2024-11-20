@@ -675,6 +675,8 @@ void load_sim_data(struct SimData *sd) {
    }
 
    //for outputs
+   printf("Requesting memory allocation of %lu bytes for u_out\n", Nr * Nt * sizeof(double));
+
    mymalloc((void **)&u_out, Nr*Nt*sizeof(double));
    /*------------------------
     * ATTACH 
