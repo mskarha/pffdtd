@@ -1,3 +1,22 @@
-data/sim_data/aspen/gpu/comms_out.h5
-data/sim_data/aspen/gpu/vox_out.h5
-python/voxel_grid.json
+# Ignore everything by default
+*
+
+# Never include the site-packages folder
+python/venv_pffdtd/lib/python3.10/site-packages/
+
+# Allow directory traversal
+!*/
+!python/
+!python/**/
+
+# Allow all Python files
+!**/*.py
+
+# Keep this file
+!.gitignore
+
+# Ignore compiled Python files
+__pycache__/
+*.pyc
+*.pyo
+*.pyd

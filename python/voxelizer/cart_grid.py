@@ -17,6 +17,7 @@ import numpy as np
 from numpy import array as npa
 from pathlib import Path
 import h5py
+
 class CartGrid():
     def __init__(self,h=None,offset=None,bmin=None,bmax=None,fcc=False):
         assert h is not None
@@ -91,12 +92,34 @@ class CartGrid():
             raise #todo polyscope
 
     def print_stats(self):
+        #from fdtd.sim_comms import get_linear_interp_weights  # Ensure the function is imported
         cg = self
+        cg.fcc = 1
         self.print(f'{cg.h=}')
         self.print(f'{cg.Nxyz=}')
         self.print(f'{cg.Npts=}')
         self.print(f'{cg.xyzmin=}')
         self.print(f'{cg.xyzmax=}')
+            # Import the function locally to avoid circular dependency
+        try:
+            from fdtd.sim_comms import SimComms
+            from common.myfuncs import ind2sub3d
+            Nx = self.Nx
+            Ny = self.Ny
+            Nz = self.Nz
+            weights, pos = SimComms.get_linear_interp_weights(self, cg.xyzmin)
+            self.print(f'get_linear_interp_weights(cg.xyzmin)_weights: {weights}')
+            self.print(f'get_linear_interp_weights(cg.xyzmin)_pos: {pos}')
+            pos_ix,pos_iy,pos_iz = ind2sub3d(pos,Nx,Ny,Nz)
+            self.print(f'ind2sub3d(pos_min): {min(pos_ix),min(pos_iy),min(pos_iz)}')
+            weights, pos = SimComms.get_linear_interp_weights(self, cg.xyzmax-.1)
+            self.print(f'get_linear_interp_weights(cg.xyzmax)_weights: {weights}')
+            self.print(f'get_linear_interp_weights(cg.xyzmax)_pos: {pos}')
+            pos_ix,pos_iy,pos_iz = ind2sub3d(pos,Nx,Ny,Nz)
+            self.print(f'ind2sub3d(pos_max): {max(pos_ix),max(pos_iy),max(pos_iz)}')
+        except ImportError as e:
+            self.print(f"Error importing get_linear_interp_weights: {e}")
+            
 
     #save in HDF5 file
     def save(self,save_folder):

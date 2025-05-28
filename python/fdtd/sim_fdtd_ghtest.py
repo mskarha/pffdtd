@@ -36,9 +36,6 @@ import json as json
 from common.myfuncs import ind2sub3d,rel_diff,get_default_nprocs
 from matplotlib.colors import LogNorm
 
-import os
-Nslice = float(os.environ.get("FDTD_SLICE_N", 1.0))  # Default = 1.0
-
 MMb = 12 #max allowed number of branches
 
 class SimEngine:
@@ -335,29 +332,15 @@ class SimEngine:
         bn_mask = self.bn_mask
         in_ixyz = self.in_ixyz
         print("in_ixyz: ", in_ixyz)
-        print("Nx: ", Nx)
-        print("Ny: ", Ny)
-        print("Nz: ", Nz)
-
         ix,iy,iz = ind2sub3d(in_ixyz,Nx,Ny,Nz)
         
         ix_in = 540  # Set X slice at index 30
-        iy_in = 576  # Set Y slice at index 40
-        iz_in = 100  # Set Z slice at index 50
+        iy_in = 518  # Set Y slice at index 40
+        iz_in = 115  # Set Z slice at index 50
         
-        
+        iz_in = np.int_(np.median(iz))
         ix_in = np.int_(np.median(ix))
         iy_in = np.int_(np.median(iy))
-        iz_in = np.int_(np.median(iz))
-        xv = self.xv
-        yv = self.yv
-        zv = self.zv
-
-        ix_in = np.searchsorted(xv, Nslice)
-        iy_in = np.searchsorted(yv, Nslice)
-        iz_in = np.searchsorted(zv, Nslice)
-
-
         print("iz: ", iz)
         print("iz_in: ", iz_in)
         print("iz min: ", np.min(iz))
@@ -370,8 +353,9 @@ class SimEngine:
         print("iy_in: ", iy_in)
         print("iy min: ", np.min(iy))
         print("iy max: ", np.max(iy))
-
-
+        xv = self.xv
+        yv = self.yv
+        zv = self.zv
         bnm_xy = bn_mask[:,:,iz_in]
         bnm_xz = bn_mask[:,iy_in,:]
         bnm_yz = bn_mask[ix_in,:,:]
@@ -382,99 +366,51 @@ class SimEngine:
         xy_x, xy_y = np.meshgrid(xv, yv, indexing='xy')
         xz_x, xz_z = np.meshgrid(xv, zv, indexing='xy')
         yz_y, yz_z = np.meshgrid(yv, zv, indexing='xy')
-
-        # --CART_GRID: cg.h=0.012257142857142857
-        # --CART_GRID: cg.Nxyz=array([824, 580, 416])
-
         if draw_backend == 'matplotlib':
             import matplotlib.pyplot as plt
             from matplotlib.animation import FuncAnimation
             from matplotlib import gridspec
-            from matplotlib.colors import LinearSegmentedColormap
 
             # Initialise subplots and formatting
             hfont = {'fontname': 'Nimbus Sans'}
-            fig = plt.figure(figsize=(10, 7))  # Adjust figure size as needed
-            gs = gridspec.GridSpec(3, 1, height_ratios=[580/416, 1, 1])
-            # gs = gridspec.GridSpec(1, 1)
+            fig = plt.figure(figsize=(20, 8))  # Adjust figure size as needed
+            #gs = gridspec.GridSpec(1, 1, width_ratios=[5,7], height_ratios=[1, 1])
 
-            # # Full-height middle subplot on the left
-            # ax1 = fig.add_subplot(gs[0, 0])  # This spans both rows in the first column
-            # ax1.set_facecolor('black')
-            # # Turn off tick marks for ax1
-            # ax1.tick_params(left=False, bottom=False, labelleft=False, labelbottom=False)
+            # Full-height middle subplot on the left
+            ax1 = fig.add_subplot(111)  # This spans both rows in the first column
+            # Turn off tick marks for ax1
+            ax1.tick_params(left=False, bottom=False, labelleft=False, labelbottom=False)
 
-            # # Define the colors for the Christmas-themed colormap
-            # colors = [
-            #     "#FFFFFF",  # Dark Green
-            #     "#891515",  # Crimson Red
-            # ]
-
-            # # Create the custom colormap
-            # christmas_cmap = LinearSegmentedColormap.from_list("Christmas", colors, N=256)
-
-
-            # extent = [xv[0], xv[-1], yv[0], yv[-1]]
+            extent = [xv[0], xv[-1], yv[0], yv[-1]]
             vmin = -0.01
             vmax = 0.01
-            # hh_xy = ax1.imshow(uxy.T, extent=extent, origin='lower', aspect='equal', cmap='twilight', vmin=vmin, vmax=vmax)
-            # ax1.imshow(~bnm_xy.T, extent=extent, origin='lower', aspect='equal', alpha=np.float64(bnm_xy).T, zorder=1)
+            hh_xy = ax1.imshow(uxy.T, extent=extent, origin='lower', aspect='equal', cmap='binary', vmin=vmin, vmax=vmax)
+            #ax1.imshow(~bnm_xy.T, extent=extent, origin='lower', aspect='equal', alpha=np.float64(bnm_xy).T)
 
             ms = 0
-            co = (1,1,1)
-            # plt.plot(xy_x.flat[bnm_xy.T.flat[:]], xy_y.flat[bnm_xy.T.flat[:]], marker='o', markersize=ms, linestyle='none', color=co)
-            # import matplotlib.image as mpimg
-            # img = mpimg.imread('/home/ta-user/pffdtd/amy/amy.png')
-            # print(img.shape)
-            # # Get the current axes limits
-            # x_limits = ax1.get_xlim()
-            # y_limits = ax1.get_ylim()
+            co = (0,0,0)
+            plt.plot(xy_x.flat[bnm_xy.T.flat[:]], xy_y.flat[bnm_xy.T.flat[:]], marker='.', markersize=ms, linestyle='none', color=co)
+            #cbar1 = fig.colorbar(hh_xy, ax=ax1)
+            #cbar1.set_label("Pa", fontsize=10)  # Add a label to the colorbar
 
-            # print("x limits:", x_limits)
-            # print("y limits:", y_limits)
-            # extent2 = [xv[0]+0.05, xv[-1]-0.05, yv[0]+0.05, yv[-1]-0.05]
-            # print(extent2)
-            # ax1.imshow(img, extent=extent2, aspect='auto', zorder=3, alpha=1)
-            # ax1.set_xlim(xv[0], xv[-1])
-            # ax1.set_ylim(yv[0], yv[-1])
-
-            # cbar1 = fig.colorbar(hh_xy, ax=ax1)
-            # cbar1.set_label("Pa", fontsize=10)  # Add a label to the colorbar
             # Top-right subplot
-            ax1 = fig.add_subplot(gs[0, 0])
-            #ax1.set_facecolor('black')
-            ax1.tick_params(left=False, bottom=False, labelleft=False, labelbottom=False)
-            for spine in ax1.spines.values():
-                spine.set_visible(False)
-            extent = [xv[0], xv[-1], yv[0], yv[-1]]
-            hh_xy = ax1.imshow(uxy.T, extent=extent, origin='lower', aspect='equal', cmap='binary', vmin=vmin, vmax=vmax)
-            #plt.plot(xy_x.flat[bnm_xy.T.flat[:]], xy_y.flat[bnm_xy.T.flat[:]], marker='.', markersize=ms, linestyle='none', color=co)
-            # cbar2 = fig.colorbar(hh_xz, ax=ax2)
-            # cbar2.set_label("Pa", fontsize=10)  # Add a label to the colorbar
-            # Top-right subplot
-            ax2 = fig.add_subplot(gs[1, 0])
-            #ax2.set_facecolor('black')
-            for spine in ax2.spines.values():
-                spine.set_visible(False)
-            ax2.tick_params(left=False, bottom=False, labelleft=False, labelbottom=False)
-            extent = [xv[0], xv[-1], zv[0], zv[-1]]
-            hh_xz = ax2.imshow(uxz.T, extent=extent, origin='lower', aspect='equal', cmap='binary', vmin=vmin, vmax=vmax)
+            #ax2 = fig.add_subplot(gs[0, 1])
+            #ax2.tick_params(left=False, bottom=False, labelleft=False, labelbottom=False)
+            #extent = [xv[0], xv[-1], zv[0], zv[-1]]
+            #hh_xz = ax2.imshow(uxz.T, extent=extent, origin='lower', aspect='equal', cmap='bone_r', vmin=vmin, vmax=vmax)
             #plt.plot(xz_x.flat[bnm_xz.T.flat[:]], xz_z.flat[bnm_xz.T.flat[:]], marker='.', markersize=ms, linestyle='none', color=co)
-            # cbar2 = fig.colorbar(hh_xz, ax=ax2)
-            # cbar2.set_label("Pa", fontsize=10)  # Add a label to the colorbar
+            #cbar2 = fig.colorbar(hh_xz, ax=ax2)
+            #cbar2.set_label("Pa", fontsize=10)  # Add a label to the colorbar
 
 
             # Bottom-right subplot
-            ax3 = fig.add_subplot(gs[2, 0])
-            #ax3.set_facecolor('black')
-            for spine in ax3.spines.values():
-                spine.set_visible(False)
-            ax3.tick_params(left=False, bottom=False, labelleft=False, labelbottom=False)
-            extent = [yv[0], yv[-1], zv[0], zv[-1]]
-            hh_yz = ax3.imshow(uyz.T, extent=extent, origin='lower', aspect='equal', cmap='binary', vmin=vmin, vmax=vmax)
+            #ax3 = fig.add_subplot(gs[1, 1])
+            #ax3.tick_params(left=False, bottom=False, labelleft=False, labelbottom=False)
+            #extent = [yv[0], yv[-1], zv[0], zv[-1]]
+            #hh_yz = ax3.imshow(uyz.T, extent=extent, origin='lower', aspect='equal', cmap='bone_r', vmin=vmin, vmax=vmax)
             #plt.plot(yz_y.flat[bnm_yz.T.flat[:]], yz_z.flat[bnm_yz.T.flat[:]], marker='.', markersize=ms, linestyle='none', color=co)
-            # cbar3 = fig.colorbar(hh_yz, ax=ax3)
-            # cbar3.set_label("Pa", fontsize=10)
+            #cbar3 = fig.colorbar(hh_yz, ax=ax3)
+            #cbar3.set_label("Pa", fontsize=10)
 
             plt.tight_layout()
             
@@ -502,33 +438,33 @@ class SimEngine:
                 
                 uxy_db_lower_bound = np.percentile(uxy_db, 1)
                 uxy_db_upper_bound = np.percentile(uxy_db, 99)
-                uxy_db = np.clip(uxy_db, uxy_db_lower_bound, uxy_db_upper_bound)
+                #uxy_db = np.clip(uxy_db, uxy_db_lower_bound, uxy_db_upper_bound)
                 
                 uxz_db_lower_bound = np.percentile(uxz_db, 1)
                 uxz_db_upper_bound = np.percentile(uxz_db, 99)
-                uxz_db = np.clip(uxz_db, uxz_db_lower_bound, uxz_db_upper_bound)
+                #uxz_db = np.clip(uxz_db, uxz_db_lower_bound, uxz_db_upper_bound)
                 
                 uyz_db_lower_bound = np.percentile(uyz_db, 1)
                 uyz_db_upper_bound = np.percentile(uyz_db, 99)
-                uyz_db = np.clip(uyz_db, uyz_db_lower_bound, uyz_db_upper_bound)
+                #uyz_db = np.clip(uyz_db, uyz_db_lower_bound, uyz_db_upper_bound)
 
                 # Update the data
-                hh_xy.set_data(uxy_db.T)
-                hh_xz.set_data(uxz_db.T)
-                hh_yz.set_data(uyz_db.T)
+                hh_xy.set_data(uxy.T)
+                #hh_xz.set_data(uxz.T)
+                #hh_yz.set_data(uyz.T)
 
                 # Dynamically update color limits based on decibel range
                 cmax_xy = np.max(uxy_db.T).flat[:]
-                cmax_xz = np.max(uxz_db.T).flat[:]
-                cmax_yz = np.max(uyz_db.T).flat[:]
+                #cmax_xz = np.max(uxz_db.T).flat[:]
+                #cmax_yz = np.max(uyz_db.T).flat[:]
 
                 cmin_xy = np.min(uxy_db.T).flat[:]
-                cmin_xz = np.min(uxz_db.T).flat[:]
-                cmin_yz = np.min(uyz_db.T).flat[:]
+                #cmin_xz = np.min(uxz_db.T).flat[:]
+                #cmin_yz = np.min(uyz_db.T).flat[:]
                 
                 hh_xy.set_clim(vmin=0, vmax=cmax_xy)
-                hh_xz.set_clim(vmin=0, vmax=cmax_xz)
-                hh_yz.set_clim(vmin=0, vmax=cmax_yz)
+                #hh_xz.set_clim(vmin=-0.0003, vmax=0.0003)
+                #hh_yz.set_clim(vmin=-0.0003, vmax=0.0003)
                 
                 #ms_counter.set_text(f"{round(frame * 0.17839285714285713, 1)} ms")
 
@@ -537,13 +473,13 @@ class SimEngine:
                 print(self.ct)
                 
 
-                return hh_xy, hh_xz, hh_yz
+                return [hh_xy] #, hh_xz, hh_yz
 
             # Create the animation
-            anim = FuncAnimation(fig, update, frames=np.arange(0, 500), blit=True)
+            anim = FuncAnimation(fig, update, frames=np.arange(0, Nt), blit=True)
 
             # Optionally save the animation
-            anim.save(f'simulation_animation_{Nslice:.1f}.mp4', fps=10, extra_args=['-vcodec', 'libx264'], dpi=200)
+            anim.save('simulation_animation.mp4', fps=10, extra_args=['-vcodec', 'libx264'], dpi=200)
 
             plt.show()
 
