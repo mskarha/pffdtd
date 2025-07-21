@@ -93,11 +93,14 @@ def sim_setup(
     cart_grid = CartGrid(h=sim_consts.h,offset=3.5,bmin=room_geo.bmin,bmax=room_geo.bmax,fcc=fcc_flag)
     cart_grid.print_stats()
     cart_grid.save(save_folder)
+    
+
 
     #set up source/receiver positions and input signals
     sim_comms = SimComms(save_folder=save_folder) #reads from cart_grid
     sim_comms.prepare_source_pts(Sxyz)
     sim_comms.prepare_receiver_pts(Rxyz)
+    print(f'{Sxyz=}')
     sim_comms.prepare_source_signals(duration,sig_type=insig_type)
     if diff_source:
         sim_comms.diff_source()

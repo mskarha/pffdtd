@@ -80,7 +80,7 @@ class SimComms:
             n = np.arange(N)
             in_sig[:N] = 0.5*(1.0-cos(2*pi*n/N))
         elif sig_type=='dhann30': #symmetric, for viz
-            N = 30
+            N = 10
             n = np.arange(N)
             in_sig[:N] = cos(pi*n/N)*sin(pi*n/N);
         elif sig_type=='hann5ms': #for consistency checking
@@ -136,7 +136,11 @@ class SimComms:
 
         self.out_alpha = out_alpha
         self.out_ixyz = out_ixyz
-
+    def print_some_stuff(self,xyzmin):
+        xyzmin = self.xyzmin
+        print(f"self.get_linear_interp_weights(self.minxyz): {self.get_linear_interp_weights(minxyz)}")
+        
+        
     def save(self,save_folder=None,compress=None):
         if save_folder is None:
             save_folder = self.save_folder
@@ -197,7 +201,7 @@ class SimComms:
         for j in [0,1,2]:
             ix_iy_iz[j] = np.flatnonzero(xyzv_list[j]>=pos_xyz[j])[0] #return first item
             alpha_xyz[j] = (xyzv_list[j][ix_iy_iz[j]] - pos_xyz[j])/h
-
+            
         #look back
         ix_iy_iz8_off = npa([[0,0,0],\
                              [-1,0,0],\
